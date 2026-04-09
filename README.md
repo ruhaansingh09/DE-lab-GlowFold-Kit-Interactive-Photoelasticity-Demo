@@ -1,1 +1,1 @@
-# DE-lab-GlowFold-Kit-Interactive-Photoelasticity-Demo
+#GlowFold-Kit-Interactive-Photoelasticity-Demo
