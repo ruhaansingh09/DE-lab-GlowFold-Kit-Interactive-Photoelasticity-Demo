@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GlowFold Kit — Interactive</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--ink:#1a1235;--dark:#0d0a1f;--c1:#ff6b6b;--c2:#ffd93d;--c3:#6bcb77;--c4:#4d96ff;--c5:#c77dff}
+body{background:var(--dark);color:white;font-family:'Nunito',sans-serif;min-height:100vh}
+.header{background:var(--ink);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid var(--c4);flex-wrap:wrap;gap:8px}
+.logo{font-size:18px;font-weight:900}.logo span{color:var(--c4)}
+.nav{display:flex;gap:6px;flex-wrap:wrap}
+.nav-btn{padding:6px 13px;border-radius:50px;border:none;font-family:'Nunito',sans-serif;font-size:11px;font-weight:800;cursor:pointer;transition:all .2s}
+.nav-btn.active{background:var(--c4);color:white}
+.nav-btn:not(.active){background:rgba(255,255,255,.08);color:rgba(255,255,255,.6)}
+.tab{display:none;padding:16px 20px}.tab.active{display:block}
+
+/* ── SIMULATOR ── */
+.shape-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px}
+.shape-btn{padding:7px 4px;border-radius:10px;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:white;font-family:'Nunito',sans-serif;font-size:10px;font-weight:800;cursor:pointer;transition:all .2s;text-align:center}
+.shape-btn.active{border-color:var(--acc);background:rgba(77,150,255,.15);color:var(--acc)}
+.sim-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:580px){.sim-grid,.shape-grid{grid-template-columns:1fr}}
+.viewer{background:#0a0618;border-radius:14px;border:2px solid rgba(255,255,255,.1);padding:14px;display:flex;flex-direction:column;align-items:center;gap:8px}
+#simCanvas{width:100%;max-width:220px;height:240px;display:block;border-radius:8px}
+.controls{background:rgba(255,255,255,.05);border-radius:14px;border:1px solid rgba(255,255,255,.1);padding:14px;display:flex;flex-direction:column;gap:10px}
+.ctrl-lbl{font-size:10px;font-weight:800;color:rgba(255,255,255,.45);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+input[type=range]{width:100%;accent-color:var(--c4)}
+.stress-num{font-size:26px;font-weight:900;color:var(--c4)}
+.stress-u{font-size:10px;color:rgba(255,255,255,.3);font-family:'Space Mono',monospace}
+.info-box{background:rgba(255,255,255,.05);border-radius:10px;padding:11px}
+.info-lbl{font-size:9px;font-weight:800;color:var(--c2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.info-txt{font-size:11.5px;color:rgba(255,255,255,.7);line-height:1.5}
+.formula{background:var(--ink);border-radius:8px;padding:8px 11px;font-family:'Space Mono',monospace;font-size:10.5px;color:var(--c2);border-left:3px solid var(--c2)}
+
+/* analyser */
+.analyser-wrap{display:flex;flex-direction:column;gap:4px}
+.analyser-dial{display:flex;align-items:center;gap:10px}
+.dial-canvas{width:54px;height:54px;flex-shrink:0;cursor:pointer}
+.analyser-info{font-size:11px;color:rgba(255,255,255,.65);line-height:1.4;flex:1}
+.analyser-angle{font-size:18px;font-weight:900;color:var(--c5);font-family:'Space Mono',monospace}
+
+/* ── FLASHCARDS ── */
+.card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.card-ctr{font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,.4)}
+.dots{display:flex;gap:5px}
+.dot{height:8px;border-radius:4px;transition:all .3s;cursor:pointer}
+.flip-wrap{perspective:1000px;height:460px;cursor:pointer;margin-bottom:12px;max-width:460px;margin-left:auto;margin-right:auto}
+.flip-inner{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
+.flip-wrap.flipped .flip-inner{transform:rotateY(180deg)}
+.face{position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:16px;overflow:hidden}
+.face-back{transform:rotateY(180deg)}
+.front-face{background:white;color:var(--ink);display:flex;flex-direction:column}
+.back-face{background:var(--ink);display:flex;flex-direction:column}
+.stripe{height:8px}
+.fbody{padding:12px;flex:1;display:flex;flex-direction:column}
+.f-num{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;margin-bottom:2px}
+.f-title{font-size:16px;font-weight:900;margin-bottom:1px;letter-spacing:-.02em}
+.f-sub{font-size:10px;color:#aaa;margin-bottom:8px}
+.f-shape{display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+/* drawing canvas */
+.draw-area{position:relative;border-radius:10px;overflow:hidden;border:2.5px dashed;margin-bottom:4px}
+.draw-canvas{display:block;width:100%;cursor:crosshair;touch-action:none}
+.draw-toolbar{display:flex;align-items:center;gap:6px;padding:4px 0}
+.color-dot{width:18px;height:18px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s;flex-shrink:0}
+.color-dot.active{border-color:white;transform:scale(1.2)}
+.clear-btn{margin-left:auto;padding:3px 10px;border-radius:20px;border:1px solid rgba(0,0,0,.2);background:rgba(0,0,0,.08);font-family:'Nunito',sans-serif;font-size:10px;font-weight:800;cursor:pointer;color:inherit}
+.flip-hint{font-size:9px;text-align:center;opacity:.3;font-weight:700}
+.bbody{padding:12px;flex:1;display:flex;flex-direction:column;gap:7px;overflow:hidden}
+.b-sec{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.4;margin-bottom:2px}
+.q-list{display:flex;flex-direction:column;gap:4px}
+.q-row{display:flex;align-items:flex-start;gap:6px;font-size:10.5px;font-weight:700;color:rgba(255,255,255,.75);line-height:1.4}
+.q-cb{width:13px;height:13px;border-radius:3px;border:1.5px solid;flex-shrink:0;margin-top:1px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.lp{border-radius:8px;padding:8px 10px}
+.lp-t{font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.6;margin-bottom:2px}
+.lp-b{font-size:10px;font-weight:700;line-height:1.4;color:var(--ink)}
+.xpr{display:flex;gap:5px;flex-wrap:wrap}
+.xpb{font-size:9px;font-weight:800;padding:2px 7px;border-radius:50px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7)}
+.xpb.g{background:#ffd93d;color:var(--ink)}
+.btn-row{display:flex;gap:10px;justify-content:center}
+.btn{padding:9px 26px;border-radius:50px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;transition:all .2s}
+.btn:active{transform:scale(.97)}
+
+/* ── QUIZ ── */
+.quiz-wrap{max-width:480px;margin:0 auto}
+.quiz-score-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.score-num{font-size:22px;font-weight:900;color:var(--c2);font-family:'Space Mono',monospace}
+.score-lbl{font-size:10px;color:rgba(255,255,255,.4);font-family:'Space Mono',monospace}
+.progress-bar{height:4px;background:rgba(255,255,255,.1);border-radius:2px;margin-bottom:16px;overflow:hidden}
+.progress-fill{height:100%;background:var(--c4);border-radius:2px;transition:width .4s}
+.quiz-card{background:rgba(255,255,255,.05);border-radius:16px;border:1px solid rgba(255,255,255,.1);overflow:hidden;margin-bottom:14px}
+.quiz-img{width:100%;height:200px;display:block;background:#0a0618}
+.quiz-q{padding:14px;font-size:13px;font-weight:800;color:white;line-height:1.4}
+.quiz-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 14px 14px}
+.qopt{padding:10px 12px;border-radius:10px;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:white;font-family:'Nunito',sans-serif;font-size:11px;font-weight:800;cursor:pointer;transition:all .2s;text-align:left}
+.qopt:hover{border-color:var(--c4);background:rgba(77,150,255,.1)}
+.qopt.correct{border-color:var(--c3);background:rgba(107,203,119,.2);color:var(--c3)}
+.qopt.wrong{border-color:var(--c1);background:rgba(255,107,107,.15);color:var(--c1)}
+.qopt.reveal{border-color:var(--c3);background:rgba(107,203,119,.15);color:var(--c3)}
+.quiz-feedback{padding:0 14px 14px;font-size:12px;font-weight:700;line-height:1.5;display:none}
+.quiz-next{display:block;width:calc(100% - 28px);margin:0 14px 14px;padding:11px;border-radius:50px;border:none;background:var(--c4);color:white;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;display:none}
+.quiz-end{text-align:center;padding:32px 20px;display:none}
+.quiz-end-score{font-size:48px;font-weight:900;color:var(--c2)}
+.quiz-end-msg{font-size:14px;color:rgba(255,255,255,.6);margin:8px 0 20px}
+.restart-btn{padding:12px 32px;border-radius:50px;border:none;background:var(--c4);color:white;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">Glow<span>Fold</span> Kit</div>
+  <div class="nav">
+    <button class="nav-btn active" onclick="switchTab('sim',this)">Simulator</button>
+    <button class="nav-btn" onclick="switchTab('cards',this)">Flash Cards</button>
+    <button class="nav-btn" onclick="switchTab('quiz',this)">Quiz</button>
+  </div>
+</div>
+
+<!-- ══ SIMULATOR ══ -->
+<div class="tab active" id="tab-sim">
+  <div class="shape-grid" id="shapeGrid"></div>
+  <div class="sim-grid">
+    <div class="viewer">
+      <canvas id="simCanvas" width="220" height="240"></canvas>
+      <div style="font-size:10px;color:rgba(255,255,255,.25);font-family:'Space Mono',monospace">polarised light view</div>
+    </div>
+    <div class="controls">
+      <div>
+        <div class="ctrl-lbl">Applied stress</div>
+        <input type="range" min="0" max="100" step="1" value="0" id="slider" oninput="updateSim()">
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <div class="stress-num" id="sval">0</div>
+          <div class="stress-u">N/mm&sup2;</div>
+        </div>
+      </div>
+      <div class="analyser-wrap">
+        <div class="ctrl-lbl">Analyser angle</div>
+        <div class="analyser-dial">
+          <canvas class="dial-canvas" id="dialCanvas" width="54" height="54"></canvas>
+          <div>
+            <div class="analyser-angle" id="angVal">90&deg;</div>
+            <div class="analyser-info" id="angInfo">Crossed polarisers — dark field. Rotate to see isoclinics move.</div>
+          </div>
+        </div>
+        <input type="range" min="0" max="180" step="1" value="90" id="angSlider" oninput="updateAngle()">
+      </div>
+      <div class="info-box">
+        <div class="info-lbl">What you would see</div>
+        <div class="info-txt" id="desc">Drag the stress slider. Watch fringes appear.</div>
+      </div>
+      <div class="formula" id="fml">&#963;&#8321; &#8722; &#963;&#8322; = N &times; f&#963; / t</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FLASHCARDS ══ -->
+<div class="tab" id="tab-cards">
+  <div class="card-top">
+    <div class="card-ctr" id="ctr">Card 1 of 5</div>
+    <div class="dots" id="dots"></div>
+  </div>
+  <div class="flip-wrap" id="flipWrap" onclick="flipCard()">
+    <div class="flip-inner" id="flipInner">
+      <div class="face front-face" id="cFront"></div>
+      <div class="face face-back back-face" id="cBack"></div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn" style="background:rgba(255,255,255,.1);color:white" onclick="prevCard()">Prev</button>
+    <button class="btn" style="background:#4d96ff;color:white" onclick="nextCard()">Next</button>
+  </div>
+</div>
+
+<!-- ══ QUIZ ══ -->
+<div class="tab" id="tab-quiz">
+  <div class="quiz-wrap">
+    <div class="quiz-score-bar">
+      <div><div class="score-lbl">Score</div><div class="score-num" id="scoreDisp">0 / 0</div></div>
+      <button class="btn" style="background:rgba(255,255,255,.1);color:white;padding:6px 14px;font-size:11px" onclick="startQuiz()">Restart</button>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
+    <div id="quizArea"></div>
+    <div class="quiz-end" id="quizEnd">
+      <div class="quiz-end-score" id="endScore"></div>
+      <div class="quiz-end-msg" id="endMsg"></div>
+      <button class="restart-btn" onclick="startQuiz()">Play again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ACC=['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff'];
+const ALT=['#fff0f0','#fffbe6','#f0fdf2','#eef4ff','#f8f0ff'];
+const SNAMES=['Plain slab','Single notch','Double notch','Central hole','Three holes'];
+
+const CARDS=[
+  {t:'Plain Slab',s:'No cuts, no holes',a:0,
+   q:['Colour bands are equally spaced top to bottom','Tightening dial adds more bands, same spacing','Rotating analyser: dark bands move, colour bands stay'],
+   l:'Polarised light splits into 2 waves. Stress slows one wave. Each colour cancels at a different thickness — evenly spaced bands. Equal stress = equal spacing.',
+   xp:'+10 XP Polarisation',b:'Baseline unlocked'},
+  {t:'Single Edge Notch',s:'V-cut on one long edge',a:1,
+   q:['Bands packed tight near notch tip','Bands spread wide away from notch','Pattern is NOT symmetric left-to-right'],
+   l:'More stress = faster phase difference. Each wavelength hits cancellation sooner near the notch. Crowded bands = higher stress at the tip.',
+   xp:'+15 XP Phase Diff',b:'Asymmetry found'},
+  {t:'Double Edge Notch',s:'V-cuts on both edges',a:2,
+   q:['Both tips show equal fringe crowding','Centre strip looks different from edges','Pattern is a perfect mirror image'],
+   l:'Both tips create identical phase differences. Same retardation = same colour = mirror-image fringes. Symmetry in stress = symmetry in light.',
+   xp:'+15 XP Interference',b:'Symmetry master'},
+  {t:'Central Hole',s:'One circular hole in centre',a:3,
+   q:['Left and right of hole show tight rings','Top and bottom appear nearly black','Kt = 3: stress is 3x higher at hole sides'],
+   l:'Near top and bottom: near-zero stress, waves in phase, fully cancelled = black. Left and right: 3x stress, large phase difference = dense colour rings.',
+   xp:'+20 XP Extinction',b:'Kt = 3 spotted'},
+  {t:'Three Holes',s:'1 large + 2 small holes',a:4,
+   q:['Gaps between holes show extra crowding','Rings from small holes blend into big hole','More bands than single hole alone'],
+   l:'Each hole creates its own retardation field. Where fields overlap, phase differences add — like two ripples making a bigger wave.',
+   xp:'+25 XP Superposition',b:'All 5 complete'},
+];
+
+const QUIZ_QS=[
+  {q:'A specimen shows evenly spaced colour bands with no crowding anywhere. Which shape is it?',
+   ans:0,opts:[0,1,3,4],
+   fb:'Uniform spacing means uniform stress — no cuts or holes to concentrate force. This is the plain slab baseline.'},
+  {q:'Fringes are very dense on the LEFT edge only, and sparse on the right. Which shape causes this?',
+   ans:1,opts:[0,1,2,3],
+   fb:'A single notch on one edge creates a one-sided stress concentration. Only the notch side shows crowded fringes.'},
+  {q:'The pattern looks like a perfect mirror image — dense fringes on BOTH left and right edges equally. Which shape?',
+   ans:2,opts:[1,2,3,4],
+   fb:'Double edge notch creates identical stress concentrations on both sides. Same retardation = same colour = mirror pattern.'},
+  {q:'Colour rings appear only at the LEFT and RIGHT of a central feature. The TOP and BOTTOM are nearly BLACK. Which shape?',
+   ans:3,opts:[0,2,3,4],
+   fb:'A circular hole causes Kt=3 stress at its sides (perpendicular to load) and near-zero stress at top and bottom. Zero stress = dark field.'},
+  {q:'You see colour rings that seem to MERGE and OVERLAP between features. More bands than expected. Which shape?',
+   ans:4,opts:[1,2,3,4],
+   fb:'Three holes create overlapping stress fields. Where they meet, phase differences add up — superposition creates extra fringe density between holes.'},
+  {q:'You rotate the analyser from 90° to 45°. Some dark bands MOVE across the specimen. What are these moving bands?',
+   ans:'isoclinics',opts:['isoclinics','isochromatics','fringes','wavelengths'],
+   fb:'Isoclinics show principal stress DIRECTION. They move when you rotate the analyser. Isochromatics (colour bands) show stress MAGNITUDE and stay fixed.',isText:true},
+  {q:'In white light, you count 3 complete colour cycles from a notch tip outward. What is the fringe order N?',
+   ans:'3',opts:['1','2','3','6'],
+   fb:'Each complete colour cycle = one fringe order. 3 cycles = N = 3. Higher N = higher stress difference at that point.',isText:true},
+  {q:'You see the darkest black band (zero order fringe) at the TOP and BOTTOM of a hole. What does this mean?',
+   ans:'zero stress',opts:['maximum stress','zero stress','material defect','wrong polariser'],
+   fb:'Zero order = no retardation = no phase difference between the two polarised waves = they fully cancel at the analyser = black. Stress is essentially zero at those points.',isText:true},
+];
+
+let curShape=0,curCard=0,flipped=false,analyserAngle=90;
+const checked=Array.from({length:5},()=>new Set());
+const drawings=Array.from({length:5},()=>null);
+const drawColors=['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#1a1235'];
+let curDrawColor=0;
+let isDrawing=false,lastX=0,lastY=0;
+let quizIdx=0,quizScore=0,quizAnswered=false;
+let quizOrder=[];
+
+// ── specimen drawing ─────────────────────────────────────────
+function drawSpecimen(ctx,id,x,y,w,h,acc){
+  const cx=x+w/2,cy=y+h/2,sw2=w/2,sh2=h/2;
+  ctx.save();
+  ctx.strokeStyle=acc;ctx.fillStyle=acc+'22';ctx.lineWidth=2;
+  ctx.beginPath();
+  if(id===0){ctx.roundRect(cx-sw2,cy-sh2,w,h,4)}
+  else if(id===1){
+    const nd=w*.28,nw=h*.1;
+    ctx.moveTo(cx-sw2,cy-sh2);ctx.lineTo(cx+sw2,cy-sh2);ctx.lineTo(cx+sw2,cy+sh2);
+    ctx.lineTo(cx-sw2,cy+sh2);ctx.lineTo(cx-sw2,cy+nw/2);ctx.lineTo(cx-sw2+nd,cy);
+    ctx.lineTo(cx-sw2,cy-nw/2);ctx.closePath();
+  } else if(id===2){
+    const nd=w*.28,nw=h*.1;
+    ctx.moveTo(cx-sw2,cy-sh2);ctx.lineTo(cx+sw2,cy-sh2);ctx.lineTo(cx+sw2,cy-nw/2);
+    ctx.lineTo(cx+sw2-nd,cy);ctx.lineTo(cx+sw2,cy+nw/2);ctx.lineTo(cx+sw2,cy+sh2);
+    ctx.lineTo(cx-sw2,cy+sh2);ctx.lineTo(cx-sw2,cy+nw/2);ctx.lineTo(cx-sw2+nd,cy);
+    ctx.lineTo(cx-sw2,cy-nw/2);ctx.closePath();
+  } else {ctx.roundRect(cx-sw2,cy-sh2,w,h,4)}
+  ctx.fill();ctx.stroke();
+  if(id===3||id===4){
+    ctx.fillStyle='#0a0618';ctx.beginPath();ctx.arc(cx,cy,w*.22,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=acc;ctx.beginPath();ctx.arc(cx,cy,w*.22,0,Math.PI*2);ctx.stroke();
+  }
+  if(id===4){
+    const sr=w*.11,yo=h*.28;
+    [cy-yo,cy+yo].forEach(hy=>{
+      ctx.fillStyle='#0a0618';ctx.beginPath();ctx.arc(cx,hy,sr,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle=acc;ctx.beginPath();ctx.arc(cx,hy,sr,0,Math.PI*2);ctx.stroke();
+    });
+  }
+  ctx.strokeStyle=acc;ctx.fillStyle=acc;ctx.lineWidth=1.5;
+  const ay=cy-sh2-10,by=cy+sh2+10;
+  ctx.beginPath();ctx.moveTo(cx,cy-sh2);ctx.lineTo(cx,ay);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,ay-5);ctx.lineTo(cx-3,ay);ctx.lineTo(cx+3,ay);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(cx,cy+sh2);ctx.lineTo(cx,by);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,by+5);ctx.lineTo(cx-3,by);ctx.lineTo(cx+3,by);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+
+function drawFringes(ctx,id,x,y,w,h,stress,angle){
+  if(stress<3)return;
+  const cx=x+w/2,cy=y+h/2;
+  const N=Math.floor(stress/16)+1;
+  const cols=['#ff6b6b','#ff9f43','#ffd93d','#6bcb77','#4d96ff','#c77dff'];
+  // analyser angle affects visibility: max at 90deg, min at 0/180
+  const angFactor=Math.abs(Math.sin((angle)*Math.PI/180));
+  ctx.save();ctx.globalAlpha=Math.min(.88,stress/55+.28)*angFactor;
+  if(id===0){
+    const sp=Math.max(4,(h-20)/(N*cols.length));
+    for(let i=0;i<N*cols.length;i++){
+      const fy=y+10+i*sp;if(fy>y+h-10)break;
+      ctx.strokeStyle=cols[i%cols.length];ctx.lineWidth=Math.max(1.5,4-stress/35);
+      ctx.beginPath();ctx.moveTo(x+4,fy);ctx.lineTo(x+w-4,fy);ctx.stroke();
+    }
+  } else if(id===1){
+    const tx=cx-w/2+w*.28;
+    for(let i=1;i<=N*2+1;i++){
+      const r=i*(w/(N*2+2))*(1+stress/110);
+      ctx.strokeStyle=cols[i%cols.length];ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.ellipse(tx,cy,r,r*.5,0,0,Math.PI*2);ctx.stroke();
+    }
+  } else if(id===2){
+    [cx-w/2+w*.28,cx+w/2-w*.28].forEach(tx=>{
+      for(let i=1;i<=N*2;i++){
+        const r=i*(w*.18/N)*(1+stress/110);
+        ctx.strokeStyle=cols[i%cols.length];ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.ellipse(tx,cy,r,r*.45,0,0,Math.PI*2);ctx.stroke();
+      }
+    });
+  } else if(id===3){
+    for(let i=1;i<=N*2+1;i++){
+      const rx=Math.min(w*.46,w*.22+i*w*.065*(1+stress/140));
+      ctx.strokeStyle=cols[i%cols.length];ctx.lineWidth=2;
+      ctx.beginPath();ctx.ellipse(cx,cy,rx,rx*.22,0,0,Math.PI*2);ctx.stroke();
+    }
+  } else if(id===4){
+    for(let i=1;i<=N*2;i++){
+      const rx=Math.min(w*.44,w*.2+i*w*.06);
+      ctx.strokeStyle=cols[i%cols.length];ctx.lineWidth=1.8;
+      ctx.beginPath();ctx.ellipse(cx,cy,rx,rx*.2,0,0,Math.PI*2);ctx.stroke();
+    }
+    const yo=h*.28;
+    [cy-yo,cy+yo].forEach(hy=>{
+      for(let i=1;i<=N;i++){
+        const r=Math.min(w*.18,w*.07+i*w*.045);
+        ctx.strokeStyle=cols[(i+2)%cols.length];ctx.lineWidth=1.4;
+        ctx.beginPath();ctx.ellipse(cx,hy,r,r*.36,0,0,Math.PI*2);ctx.stroke();
+      }
+    });
+  }
+  // isoclinics — dark bands that move with analyser angle
+  const aDeg=angle%180;
+  const icAlpha=Math.max(0,.6-Math.abs(stress)/200)*0.7;
+  if(icAlpha>0.05&&stress>10){
+    ctx.globalAlpha=icAlpha;
+    ctx.strokeStyle='#000';ctx.lineWidth=6;
+    const rad=(aDeg)*Math.PI/180;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(rad)*w,cy+Math.sin(rad)*w);
+    ctx.lineTo(cx-Math.cos(rad)*w,cy-Math.sin(rad)*w);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(rad+Math.PI/2)*w,cy+Math.sin(rad+Math.PI/2)*w);
+    ctx.lineTo(cx-Math.cos(rad+Math.PI/2)*w,cy-Math.sin(rad+Math.PI/2)*w);
+    ctx.stroke();
+  }
+  ctx.globalAlpha=1;ctx.restore();
+}
+
+function drawDial(angle){
+  const c=document.getElementById('dialCanvas');
+  const ctx=c.getContext('2d');
+  const cx=27,cy=27,r=22;
+  ctx.clearRect(0,0,54,54);
+  ctx.fillStyle='#0d0a1f';ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+  // polariser fixed at 0
+  ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(cx-r*.8,cy);ctx.lineTo(cx+r*.8,cy);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='7px Nunito';ctx.textAlign='center';ctx.fillText('P',cx,cy-r*.85);
+  // analyser at angle
+  const rad=(angle-90)*Math.PI/180;
+  ctx.strokeStyle='#c77dff';ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(cx+Math.cos(rad)*r*.8,cy+Math.sin(rad)*r*.8);
+  ctx.lineTo(cx-Math.cos(rad)*r*.8,cy-Math.sin(rad)*r*.8);
+  ctx.stroke();
+  ctx.fillStyle='#c77dff';ctx.font='7px Nunito';ctx.textAlign='center';
+  ctx.fillText('A',cx+Math.cos(rad)*r,cy+Math.sin(rad)*r+3);
+}
+
+function renderSim(){
+  const cv=document.getElementById('simCanvas');
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  ctx.fillStyle='#0a0618';ctx.fillRect(0,0,W,H);
+  const stress=+document.getElementById('slider').value;
+  const acc=ACC[curShape];
+  const sw=W*.55,sh=H*.65,sx=(W-sw)/2,sy=(H-sh)/2;
+  drawFringes(ctx,curShape,sx,sy,sw,sh,stress,analyserAngle);
+  drawSpecimen(ctx,curShape,sx,sy,sw,sh,acc);
+  drawDial(analyserAngle);
+}
+
+function updateSim(){
+  const v=+document.getElementById('slider').value;
+  document.getElementById('sval').textContent=v;
+  const N=Math.max(0,Math.floor(v/16));
+  document.getElementById('desc').textContent=
+    v<5?'No stress. Dark field — polarised waves arrive in phase, cancel at analyser.':
+    v<25?'Low stress. First fringe appears — one wavelength shifted enough to transmit.':
+    v<55?'Moderate stress. Multiple colour bands — each colour cancels at a different depth.':
+    v<78?'High stress. Dense fringes. Count bands to get fringe order N.':
+    'Very high stress. Extremely dense fringes — strong stress concentration.';
+  document.getElementById('fml').textContent=
+    v<5?'N = 0  \u2192  no retardation':`N \u2248 ${N}  \u2192  \u03c3\u2081 \u2212 \u03c3\u2082 = ${N} \u00d7 f\u03c3 / t`;
+  renderSim();
+}
+
+function updateAngle(){
+  analyserAngle=+document.getElementById('angSlider').value;
+  document.getElementById('angVal').textContent=analyserAngle+'\u00b0';
+  const info=analyserAngle===90?'Crossed polarisers — dark field. Isochromatics visible.':
+             analyserAngle===0||analyserAngle===180?'Parallel polarisers — bright field. Pattern inverted.':
+             'Intermediate angle — dark isoclinic bands rotate with the analyser.';
+  document.getElementById('angInfo').textContent=info;
+  renderSim();
+}
+
+function buildShapes(){
+  document.getElementById('shapeGrid').innerHTML=SNAMES.map((s,i)=>
+    `<button class="shape-btn ${i===0?'active':''}"
+     style="${i===0?`border-color:${ACC[0]};color:${ACC[0]};background:${ACC[0]}22`:''}"
+     onclick="selShape(${i},this)">${s}</button>`).join('');
+}
+
+function selShape(i,btn){
+  curShape=i;
+  document.querySelectorAll('.shape-btn').forEach(b=>{
+    b.classList.remove('active');
+    b.style.cssText='';
+  });
+  btn.classList.add('active');
+  btn.style.borderColor=ACC[i];btn.style.color=ACC[i];btn.style.background=ACC[i]+'22';
+  document.getElementById('slider').value=0;updateSim();
+}
+
+// ── drawing canvas setup ─────────────────────────────────────
+function initDrawCanvas(canvasId,cardIdx){
+  const canvas=document.getElementById(canvasId);
+  if(!canvas)return;
+  const rect=()=>canvas.getBoundingClientRect();
+  const getPos=(e)=>{
+    const r=rect();
+    const src=e.touches?e.touches[0]:e;
+    return{x:(src.clientX-r.left)*(canvas.width/r.width),
+           y:(src.clientY-r.top)*(canvas.height/r.height)};
+  };
+  // restore saved drawing
+  if(drawings[cardIdx]){
+    const img=new Image();
+    img.onload=()=>canvas.getContext('2d').drawImage(img,0,0);
+    img.src=drawings[cardIdx];
+  }
+  const start=e=>{
+    e.preventDefault();isDrawing=true;
+    const p=getPos(e);lastX=p.x;lastY=p.y;
+  };
+  const move=e=>{
+    e.preventDefault();if(!isDrawing)return;
+    const p=getPos(e);
+    const ctx=canvas.getContext('2d');
+    ctx.strokeStyle=drawColors[curDrawColor];
+    ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(p.x,p.y);ctx.stroke();
+    lastX=p.x;lastY=p.y;
+  };
+  const end=e=>{
+    e.preventDefault();isDrawing=false;
+    drawings[cardIdx]=canvas.toDataURL();
+  };
+  canvas.addEventListener('mousedown',start);
+  canvas.addEventListener('mousemove',move);
+  canvas.addEventListener('mouseup',end);
+  canvas.addEventListener('touchstart',start,{passive:false});
+  canvas.addEventListener('touchmove',move,{passive:false});
+  canvas.addEventListener('touchend',end,{passive:false});
+}
+
+// ── zone map ─────────────────────────────────────────────────
+function drawZone(ctx,id,acc,W,H){
+  ctx.fillStyle='#0d0a1f';ctx.fillRect(0,0,W,H);
+  const cx=W/2,cy=H/2;
+  const HIGH='#ff6b6b',MED='#ffd93d',LOW='#6bcb77',BLUE='#4d96ff',PURP='#c77dff';
+  if(id===0){
+    ['#ff6b6b','#ff9f43','#ffd93d','#6bcb77','#4d96ff'].forEach((c,i)=>{
+      ctx.fillStyle=c;ctx.globalAlpha=.45;ctx.fillRect(4,4+i*(H-8)/5*.9,(W-8),(H-8)/5*.82);
+    });
+    ctx.globalAlpha=1;ctx.fillStyle='white';ctx.font='bold 9px Nunito,sans-serif';ctx.textAlign='center';
+    ctx.fillText('UNIFORM',cx,cy+3);
+  } else if(id===1){
+    ctx.fillStyle=LOW;ctx.globalAlpha=.2;ctx.fillRect(W*.44,4,W*.52,H-8);
+    [[15,.4],[8,.6],[3,.9]].forEach(([r,a])=>{ctx.fillStyle=HIGH;ctx.globalAlpha=a;ctx.beginPath();ctx.arc(W*.16,cy,r,0,Math.PI*2);ctx.fill();});
+    ctx.globalAlpha=1;ctx.fillStyle=HIGH;ctx.font='bold 9px Nunito,sans-serif';ctx.textAlign='left';
+    ctx.fillText('HOT',6,cy+3);ctx.fillStyle=LOW;ctx.textAlign='center';ctx.fillText('LOW',W*.72,cy+3);
+  } else if(id===2){
+    [W*.16,W*.84].forEach(hx=>{
+      [[12,.4],[7,.6],[3,.9]].forEach(([r,a])=>{ctx.fillStyle=HIGH;ctx.globalAlpha=a;ctx.beginPath();ctx.arc(hx,cy,r,0,Math.PI*2);ctx.fill();});
+    });
+    ctx.fillStyle=MED;ctx.globalAlpha=.25;ctx.fillRect(W*.35,cy-H*.22,W*.3,H*.44);
+    ctx.globalAlpha=1;ctx.fillStyle=MED;ctx.font='bold 8px Nunito,sans-serif';ctx.textAlign='center';
+    ctx.fillText('high load',cx,cy+3);
+    ctx.strokeStyle='rgba(255,255,255,.12)';ctx.setLineDash([3,2]);ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(cx,4);ctx.lineTo(cx,H-4);ctx.stroke();ctx.setLineDash([]);
+  } else if(id===3){
+    [[W*.42,H*.12,.28],[W*.31,H*.08,.45],[W*.21,H*.06,.65]].forEach(([rx,ry,a])=>{
+      ctx.fillStyle=HIGH;ctx.globalAlpha=a;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fill();
+    });
+    ctx.fillStyle='#0d0a1f';ctx.globalAlpha=1;ctx.beginPath();ctx.arc(cx,cy,W*.16,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=BLUE;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(cx,cy,W*.16,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle=HIGH;ctx.font='bold 9px Nunito,sans-serif';ctx.textAlign='center';
+    ctx.fillText('3x',cx-W*.28,cy+3);ctx.fillText('3x',cx+W*.28,cy+3);
+    ctx.fillStyle=BLUE;ctx.font='8px Nunito,sans-serif';
+    ctx.fillText('~0',cx,12);ctx.fillText('~0',cx,H-3);
+  } else if(id===4){
+    [[W*.38,H*.1,.28],[W*.28,H*.07,.5]].forEach(([rx,ry,a])=>{
+      ctx.fillStyle=HIGH;ctx.globalAlpha=a;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fill();
+    });
+    const yo=H*.3;
+    [cy-yo,cy,cy+yo].forEach((hy,i)=>{
+      const r=i===1?W*.17:W*.09;
+      ctx.fillStyle='#0d0a1f';ctx.globalAlpha=1;ctx.beginPath();ctx.arc(cx,hy,r,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle=PURP;ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx,hy,r,0,Math.PI*2);ctx.stroke();
+    });
+    [cy-yo*.5,cy+yo*.45].forEach(iy=>{
+      ctx.fillStyle=PURP;ctx.globalAlpha=.3;ctx.fillRect(cx-W*.1,iy-H*.08,W*.2,H*.1);
+    });
+    ctx.globalAlpha=1;ctx.fillStyle=PURP;ctx.font='bold 8px Nunito,sans-serif';ctx.textAlign='center';
+    ctx.fillText('MERGE',cx,cy-yo*.48+3);ctx.fillText('MERGE',cx,cy+yo*.52+3);
+  }
+  ctx.globalAlpha=1;
+}
+
+// ── flashcards ───────────────────────────────────────────────
+function buildDots(){
+  document.getElementById('dots').innerHTML=CARDS.map((_,i)=>
+    `<div class="dot" id="d${i}" style="width:${i===0?20:8}px;background:${i===0?ACC[0]:'rgba(255,255,255,.15)'}" onclick="goCard(${i})"></div>`).join('');
+}
+
+function renderCard(){
+  const card=CARDS[curCard],acc=ACC[card.a],alt=ALT[card.a];
+  document.getElementById('ctr').textContent=`Card ${curCard+1} of ${CARDS.length}`;
+  CARDS.forEach((_,i)=>{
+    const d=document.getElementById('d'+i);if(!d)return;
+    d.style.width=i===curCard?'20px':'8px';
+    d.style.background=i===curCard?ACC[CARDS[i].a]:'rgba(255,255,255,.15)';
+  });
+  const front=document.getElementById('cFront');
+  front.innerHTML=`
+    <div class="stripe" style="background:${acc}"></div>
+    <div class="fbody">
+      <div class="f-num" style="color:${acc}">SP — 0${curCard+1}</div>
+      <div class="f-title">${card.t}</div>
+      <div class="f-sub">${card.s}</div>
+      <div class="f-shape"><canvas id="sc" width="100" height="130" style="background:${alt};border-radius:8px"></canvas></div>
+      <div class="draw-area" style="border-color:${acc};height:100px">
+        <canvas id="dc" class="draw-canvas" width="400" height="100"></canvas>
+      </div>
+      <div class="draw-toolbar">
+        ${drawColors.map((c,i)=>`<div class="color-dot ${i===curDrawColor?'active':''}" style="background:${c};${c==='#1a1235'?'border:2px solid rgba(255,255,255,.3)':''}" onclick="setColor(${i},event)"></div>`).join('')}
+        <button class="clear-btn" onclick="clearDraw(event)" style="color:${acc}">Clear</button>
+      </div>
+      <div class="flip-hint">Tap card to see answer</div>
+    </div>`;
+  setTimeout(()=>{
+    const sc=document.getElementById('sc');
+    if(sc){const ctx=sc.getContext('2d');ctx.fillStyle=alt;ctx.fillRect(0,0,100,130);drawSpecimen(ctx,card.a,8,15,84,100,acc);}
+    initDrawCanvas('dc',curCard);
+  },30);
+
+  const qs=card.q.map((q,qi)=>{
+    const on=checked[curCard].has(qi);
+    return `<div class="q-row">
+      <div class="q-cb" style="border-color:${acc};background:${on?acc:'transparent'}"
+           onclick="toggle(event,${qi})">${on?'<div style="width:7px;height:7px;border-radius:1px;background:white"></div>':''}</div>
+      <span>${q}</span></div>`;
+  }).join('');
+  const back=document.getElementById('cBack');
+  back.innerHTML=`
+    <div class="stripe" style="background:${acc}"></div>
+    <div class="bbody">
+      <div><div class="b-sec">Stress zone map</div>
+        <canvas id="zc" width="300" height="85" style="width:100%;border-radius:8px;display:block"></canvas></div>
+      <div><div class="b-sec" style="color:${acc}">Light science quest</div>
+        <div class="q-list">${qs}</div></div>
+      <div class="lp" style="background:${acc}">
+        <div class="lp-t">What light is doing</div>
+        <div class="lp-b">${card.l}</div></div>
+      <div class="xpr">
+        <span class="xpb g">${card.xp}</span>
+        <span class="xpb">${card.b}</span></div>
+    </div>`;
+  setTimeout(()=>{
+    const zc=document.getElementById('zc');
+    if(zc){drawZone(zc.getContext('2d'),card.a,acc,300,85);}
+  },30);
+}
+
+function setColor(i,e){e.stopPropagation();curDrawColor=i;renderCard();if(flipped){document.getElementById('flipWrap').classList.add('flipped');}}
+function clearDraw(e){
+  e.stopPropagation();
+  drawings[curCard]=null;
+  const dc=document.getElementById('dc');
+  if(dc){dc.getContext('2d').clearRect(0,0,dc.width,dc.height);}
+}
+function toggle(e,qi){
+  e.stopPropagation();
+  const s=checked[curCard];s.has(qi)?s.delete(qi):s.add(qi);
+  const wasFlipped=flipped;renderCard();
+  if(wasFlipped)document.getElementById('flipWrap').classList.add('flipped');
+}
+function flipCard(){flipped=!flipped;document.getElementById('flipWrap').classList.toggle('flipped',flipped);}
+function nextCard(){if(curCard<CARDS.length-1){curCard++;flipped=false;document.getElementById('flipWrap').classList.remove('flipped');renderCard();}}
+function prevCard(){if(curCard>0){curCard--;flipped=false;document.getElementById('flipWrap').classList.remove('flipped');renderCard();}}
+function goCard(i){curCard=i;flipped=false;document.getElementById('flipWrap').classList.remove('flipped');renderCard();}
+
+// ── QUIZ ─────────────────────────────────────────────────────
+function shuffleArr(a){return a.sort(()=>Math.random()-.5)}
+
+function renderQuizFringe(canvas,shapeId){
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  ctx.fillStyle='#0a0618';ctx.fillRect(0,0,W,H);
+  const acc=ACC[shapeId];
+  const sw=W*.5,sh=H*.7,sx=(W-sw)/2,sy=(H-sh)/2;
+  drawFringes(ctx,shapeId,sx,sy,sw,sh,70,90);
+  drawSpecimen(ctx,shapeId,sx,sy,sw,sh,acc);
+}
+
+function startQuiz(){
+  quizIdx=0;quizScore=0;quizAnswered=false;
+  quizOrder=shuffleArr([...Array(QUIZ_QS.length).keys()]);
+  document.getElementById('quizEnd').style.display='none';
+  document.getElementById('quizArea').style.display='block';
+  renderQuiz();
+}
+
+function renderQuiz(){
+  const prog=(quizIdx/QUIZ_QS.length)*100;
+  document.getElementById('progFill').style.width=prog+'%';
+  document.getElementById('scoreDisp').textContent=`${quizScore} / ${quizIdx}`;
+  if(quizIdx>=QUIZ_QS.length){showQuizEnd();return;}
+  const q=QUIZ_QS[quizOrder[quizIdx]];
+  quizAnswered=false;
+  const isShapeQ=!q.isText;
+  const optLabels=isShapeQ?q.opts.map(i=>SNAMES[i]):q.opts;
+  const correctLabel=isShapeQ?SNAMES[q.ans]:q.ans;
+  const shuffledOpts=shuffleArr([...optLabels]);
+
+  const area=document.getElementById('quizArea');
+  area.innerHTML=`
+    <div class="quiz-card">
+      ${isShapeQ?`<canvas class="quiz-img" id="qCanvas" width="460" height="200"></canvas>`:''}
+      <div class="quiz-q">${q.q}</div>
+      <div class="quiz-opts" id="qOpts">
+        ${shuffledOpts.map(opt=>`<button class="qopt" onclick="answerQuiz('${opt}','${correctLabel}',this)">${opt}</button>`).join('')}
+      </div>
+      <div class="quiz-feedback" id="qFb"></div>
+      <button class="quiz-next" id="qNext" onclick="nextQuiz()">Next question &rarr;</button>
+    </div>`;
+  if(isShapeQ){
+    setTimeout(()=>{
+      const qc=document.getElementById('qCanvas');
+      if(qc)renderQuizFringe(qc,q.ans);
+    },30);
+  }
+}
+
+function answerQuiz(chosen,correct,btn){
+  if(quizAnswered)return;
+  quizAnswered=true;
+  const isCorrect=chosen===correct;
+  if(isCorrect)quizScore++;
+  quizIdx++;
+  document.getElementById('scoreDisp').textContent=`${quizScore} / ${quizIdx}`;
+  btn.classList.add(isCorrect?'correct':'wrong');
+  if(!isCorrect){
+    document.querySelectorAll('.qopt').forEach(b=>{
+      if(b.textContent===correct)b.classList.add('reveal');
+    });
+  }
+  const q=QUIZ_QS[quizOrder[quizIdx-1]];
+  const fb=document.getElementById('qFb');
+  fb.style.display='block';
+  fb.style.color=isCorrect?'#6bcb77':'#ff6b6b';
+  fb.textContent=(isCorrect?'Correct! ':'Not quite. ')+q.fb;
+  document.getElementById('qNext').style.display='block';
+  document.querySelectorAll('.qopt').forEach(b=>b.style.pointerEvents='none');
+}
+
+function nextQuiz(){renderQuiz();}
+
+function showQuizEnd(){
+  document.getElementById('quizArea').style.display='none';
+  const end=document.getElementById('quizEnd');
+  end.style.display='block';
+  document.getElementById('progFill').style.width='100%';
+  document.getElementById('scoreDisp').textContent=`${quizScore} / ${QUIZ_QS.length}`;
+  document.getElementById('endScore').textContent=`${quizScore}/${QUIZ_QS.length}`;
+  const pct=quizScore/QUIZ_QS.length;
+  document.getElementById('endMsg').textContent=
+    pct===1?'Perfect score! You understand light behaviour completely.':
+    pct>=.75?'Great work! Strong understanding of photoelasticity.':
+    pct>=.5?'Good start. Review the flash cards and try again.':
+    'Keep practising. Load up the simulator and study the patterns.';
+}
+
+function switchTab(tab,btn){
+  document.querySelectorAll('.tab').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');btn.classList.add('active');
+  if(tab==='sim')renderSim();
+  if(tab==='quiz'&&quizIdx===0)startQuiz();
+}
+
+buildShapes();buildDots();renderCard();renderSim();startQuiz();
+</script>
+</body>
+</html>
